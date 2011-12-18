@@ -5,7 +5,7 @@ LDFLAGS=-g3
 
 CXX_R=@echo '   CXX\t' $<;$(CXX)
 CC_R=@echo '   CC\t' $<;$(CC)
-LD_R=@echo '   LD\t' $<;$(CXX)
+LD_R=@echo '   LD\t' $@;$(CXX)
 
 all: testcjsonpp
 
