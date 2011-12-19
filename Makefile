@@ -3,9 +3,9 @@ CXXFLAGS=-std=c++0x -g3 -Wall -Wextra -pedantic-errors
 CFLAGS=-std=c99 -g3 -Wall -Wextra -pedantic-errors
 LDFLAGS=-g3
 
-CXX_R=@echo '   CXX\t' $<;$(CXX)
-CC_R=@echo '   CC\t' $<;$(CC)
-LD_R=@echo '   LD\t' $@;$(CXX)
+CXX_R=@echo "   CXX" $@;$(CXX)
+CC_R=@echo "   CC" $@;$(CC)
+LD_R=@echo "   LD" $@;$(CXX)
 
 all: testcjsonpp
 
