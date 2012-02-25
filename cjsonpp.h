@@ -42,8 +42,8 @@
 		JSONObject obj;
 		std::vector<int> v = {1, 2, 3, 4};
 		obj.set("intval", 1234);
-	    obj.set("arrval", v);
-	    obj.set("doubleval", JSONObject(100.1));
+		obj.set("arrval", v);
+		obj.set("doubleval", JSONObject(100.1));
 		obj.set("nullval", cjsonpp::nullObject());
 
 		...
