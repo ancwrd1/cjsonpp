@@ -1,4 +1,4 @@
-OBJS=cJSON.o test.o
+OBJS=cJSON.o test.o cjsonpp.o
 CXXFLAGS=-std=c++0x -g3 -Wall -Wextra -pedantic-errors
 CFLAGS=-std=c99 -g3 -Wall -Wextra -pedantic-errors
 LDFLAGS=-g3
@@ -20,3 +20,6 @@ test.o: test.cc cjsonpp.h
 
 cJSON.o: cJSON.c
 	$(CC_R) -o $@ -c $(CFLAGS) $<
+
+cjsonpp.o: cjsonpp.cc cjsonpp.h
+	$(CXX_R) -o $@ -c $(CXXFLAGS) $<
