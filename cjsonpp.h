@@ -339,7 +339,7 @@ private:
 // parse from C string
 inline JSONObject parse(const char* str)
 {
-	return JSONObject(cJSON_Parse(str));
+	return JSONObject(cJSON_Parse(str), true);
 }
 
 // parse from std::string
@@ -351,13 +351,13 @@ inline JSONObject parse(const std::string& str)
 // create null object
 inline JSONObject nullObject()
 {
-	return JSONObject(cJSON_CreateNull());
+	return JSONObject(cJSON_CreateNull(), true);
 }
 
 // create empty array object
 inline JSONObject arrayObject()
 {
-	return JSONObject(cJSON_CreateArray());
+	return JSONObject(cJSON_CreateArray(), true);
 }
 
 // A traditional C++ streamer
