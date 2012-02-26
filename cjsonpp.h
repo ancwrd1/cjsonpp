@@ -218,10 +218,7 @@ public:
 
 	// get value (specialized below)
 	template <typename T>
-	T as() const
-	{
-		throw JSONError("Bad value type");
-	}
+	T as() const;
 
 	// get value of the element
 	template <typename T, typename P>
