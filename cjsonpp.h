@@ -43,7 +43,7 @@
 #include <stdexcept>
 #include <string>
 #include <memory>
-#include <vector>
+#include <set>
 #include <ostream>
 #include <algorithm>
 
@@ -92,6 +92,7 @@ class JSONObject
 			return o;
 		}
 	};
+	typedef std::shared_ptr<Holder> HolderPtr;
 
 public:
 	// create empty object
@@ -257,37 +258,29 @@ public:
 	}
 
 	// add value to array
-	inline void add(const JSONObject& value)
+	template <typename T>
+	inline void add(const T& value)
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
 			throw JSONError("Not an array type");
-		cJSON_AddItemReferenceToArray(obj_->o, value.obj());
-		refs_.push_back(value);
+		JSONObject o(value);
+		cJSON_AddItemReferenceToArray(obj_->o, o.obj_->o);
+		refs_.insert(o.obj_);
 	}
 
 	// set value in object
-	inline void set(const char* name, const JSONObject& value) {
+	template <typename T>
+	inline void set(const char* name, const T& value) {
 		if (((*obj_)->type & 0xff) != cJSON_Object)
 			throw JSONError("Not an object type");
-		cJSON_AddItemReferenceToObject(obj_->o, name, value.obj());
-		refs_.push_back(value);
+		JSONObject o(value);
+		cJSON_AddItemReferenceToObject(obj_->o, name, o.obj_->o);
+		refs_.insert(o.obj_);
 	}
 
 	// set value in object (std::string)
 	inline void set(const std::string& name, const JSONObject& value) {
 		return set(name.c_str(), value);
-	}
-
-	// template versions
-	template <typename T>
-	inline void add(const T& value)
-	{
-		return add(JSONObject(value));
-	}
-
-	template <typename P, typename T>
-	inline void set(const P& param, const T& value) {
-		return set(param, JSONObject(value));
 	}
 
 	cJSON* obj() const { return obj_->o; }
@@ -313,8 +306,10 @@ private:
 	template <typename T>
 	T as(cJSON* obj) const;
 
-	std::shared_ptr<Holder> obj_;
-	std::vector<JSONObject> refs_;
+	HolderPtr obj_;
+
+	// track added holders so that they are not destroyed prematurely before this object dies
+	std::set<HolderPtr> refs_;
 
 	friend JSONObject parse(const char* str);
 	friend JSONObject nullObject();

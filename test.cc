@@ -18,7 +18,7 @@ int main()
 		std::cout << o.get<std::string>("eee") << '\n';
 		std::cout << o << '\n';
 
-		std::vector<JSONObject> jv = o.get<JSONObject>("lll").asArray<JSONObject>();
+		std::vector<JSONObject> jv = o.get("lll").asArray<JSONObject>();
 
 		for (size_t i = 0; i < jv.size(); i++)
 			std::cout << jv[i].as<int>();
