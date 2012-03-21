@@ -10,18 +10,23 @@ int main()
 		std::vector<int> v = {1, 2, 3, 4};
 
 
-		o.set("test", 1234);
-		o.set("eee", "1234");
-		o.set("rrr", "vvv");
-		o.set("lll", v);
+		JSONObject vo = {1, 2, 3, 4};
 
-		std::cout << o.get<std::string>("eee") << '\n';
-		std::cout << o << '\n';
+		o.set("num", 1234);
+		o.set("str1", "1234");
+		o.set("str2", "vvv");
+		o.set("v", v);
+		o.set("vo", vo);
 
-		std::vector<JSONObject> jv = o.get("lll").asArray<JSONObject>();
+		std::cout << o.get<std::string>("str1") << '\n';
+		std::cout << parse(o.print()) << '\n';
+
+		std::vector<JSONObject> jv = o.get("v").asArray();
+		std::vector<int> iv = o.get("vo").asArray<int>();
 
 		for (size_t i = 0; i < jv.size(); i++)
-			std::cout << jv[i].as<int>();
+			std::cout << jv[i].as<int>() << iv[i];
+		std::cout << '\n';
 
 		JSONObject obj;
 		obj.set("intval", 1234);

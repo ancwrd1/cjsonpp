@@ -1,10 +1,10 @@
-// This code is public domain software
+// This code is a public domain software.
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
-  Version 0.1.0.
+  Version 0.1.
 
-  Requires C++11 compiler with lambdas, move constructors, enum classes, std::shared_ptr.
+  Requires C++11 compiler with std::shared_ptr.
   Tested with gcc 4.6
 
   Usage examples:
@@ -45,14 +45,15 @@
 #include <memory>
 #include <set>
 #include <ostream>
-#include <algorithm>
+#include <vector>
+#include <initializer_list>
 
 #include "cJSON.h"
 
 namespace cjsonpp {
 
 // JSON type wrapper enum
-enum class JSONType {
+enum JSONType {
 	Bool,
 	Null,
 	String,
@@ -78,7 +79,7 @@ class JSONObject
 	struct Holder {
 		cJSON* o;
 		bool own_;
-		explicit Holder(cJSON* obj, bool own=true) : o(obj), own_(own) {}
+		Holder(cJSON* obj, bool own) : o(obj), own_(own) {}
 		~Holder() { if (own_) cJSON_Delete(o); }
 
 		// no copy constructor
@@ -97,7 +98,7 @@ class JSONObject
 public:
 	// create empty object
 	JSONObject()
-		: obj_(new Holder(cJSON_CreateObject()))
+		: obj_(new Holder(cJSON_CreateObject(), true))
 	{
 	}
 
@@ -114,36 +115,36 @@ public:
 
 	// create boolean object
 	explicit JSONObject(bool value)
-		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse()))
+		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse(), true))
 	{
 	}
 
 	// create double object
 	explicit JSONObject(double value)
-		: obj_(new Holder(cJSON_CreateNumber(value)))
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(value)))
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create integer object
-	explicit JSONObject(long value)
-		: obj_(new Holder(cJSON_CreateNumber(value)))
+	explicit JSONObject(long long value)
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create string object
 	explicit JSONObject(const char* value)
-		: obj_(new Holder(cJSON_CreateString(value)))
+		: obj_(new Holder(cJSON_CreateString(value), true))
 	{
 	}
 
 	explicit JSONObject(const std::string& value)
-		: obj_(new Holder(cJSON_CreateString(value.c_str())))
+		: obj_(new Holder(cJSON_CreateString(value.c_str()), true))
 	{
 	}
 
@@ -152,23 +153,24 @@ public:
 			  template<typename T, typename A> class ContT=std::vector,
 			  template<typename T> class AllocT=std::allocator>
 	explicit JSONObject(const ContT<T, AllocT<T>>& elems)
-		: obj_(new Holder(cJSON_CreateArray()))
+		: obj_(new Holder(cJSON_CreateArray(), true))
 	{
-		std::for_each(elems.cbegin(), elems.cend(),
-					  [this](const T& e) { add(e); });
+		for (auto it = elems.cbegin(); it != elems.cend(); it++)
+			add(*it);
+	}
+
+	template <typename T>
+	JSONObject(const std::initializer_list<T>& elems)
+		: obj_(new Holder(cJSON_CreateArray(), true))
+	{
+		for (auto it = elems.begin(); it != elems.end(); it++)
+			add(*it);
 	}
 
 	// copy constructor
 	JSONObject(const JSONObject& other)
 		: obj_(other.obj_)
 	{
-	}
-
-	// move constructor
-	JSONObject(JSONObject&& other)
-		: obj_(other.obj_)
-	{
-		other.obj_.reset();
 	}
 
 	// copy operator
@@ -179,39 +181,28 @@ public:
 		return *this;
 	}
 
-	// move operator
-	inline JSONObject& operator=(JSONObject&& other)
-	{
-		if (&other != this) {
-			obj_ = other.obj_;
-			other.obj_.reset();
-		}
-
-		return *this;
-	}
-
 	// get object type
 	inline JSONType type() const
 	{
 		static JSONType vmap[] = {
-			JSONType::Bool, JSONType::Bool, JSONType::Null, JSONType::Number,
-			JSONType::String, JSONType::Array, JSONType::Object
+			Bool, Bool, Null, Number,
+			String, Array, Object
 		};
 		return vmap[(*obj_)->type & 0xff];
 	}
 
 	// get value from this object
 	template <typename T>
-	T as() const
+	inline T as() const
 	{
 		return as<T>(obj_->o);
 	}
 
 	// get array
-	template <typename T,
+	template <typename T=JSONObject,
 			  template<typename T, typename A> class ContT=std::vector,
 			  template<typename T> class AllocT=std::allocator>
-	ContT<T, AllocT<T>> asArray() const
+	inline ContT<T, AllocT<T>> asArray() const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
 			throw JSONError("Not an array type");
@@ -283,19 +274,11 @@ public:
 		return set(name.c_str(), value);
 	}
 
-	cJSON* obj() const { return obj_->o; }
+	inline cJSON* obj() const { return obj_->o; }
 
-	std::string print() const
+	std::string print(bool formatted=true) const
 	{
-		char* json = cJSON_Print(obj_->o);
-		std::string retval(json);
-		free(json);
-		return retval;
-	}
-
-	std::string printUnformatted() const
-	{
-		char* json = cJSON_PrintUnformatted(obj_->o);
+		char* json = formatted ? cJSON_Print(obj_->o) : cJSON_PrintUnformatted(obj_->o);
 		std::string retval(json);
 		free(json);
 		return retval;
@@ -350,11 +333,11 @@ inline int JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline long JSONObject::as(cJSON* obj) const
+inline long long JSONObject::as(cJSON* obj) const
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
-	return (long)obj->valuedouble;
+	return (long long)obj->valuedouble;
 }
 
 template <>
