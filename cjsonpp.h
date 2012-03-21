@@ -1,41 +1,22 @@
-/*
-  Copyright (c) 2011 Dmitry Pankratov <dmitry@pankratov.net>
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in
-  all copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
-*/
+// This code is public domain software
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
-  Version 0.9.0.
+  Version 0.1.0.
 
   Requires C++11 compiler with lambdas, move constructors, enum classes, std::shared_ptr.
-  Tested with G++ 4.6
+  Tested with gcc 4.6
 
   Usage examples:
 		// parse and get value
 		JSONObject obj = cjsonpp::parse(jsonstr);
 		// the following two lines are equal
-		std::cout << obj.get("intval").as<int>() << std::endl;
-		std::cout << obj.as<int>("intval") << std::endl;
+		std::cout << obj.get<int>("intval") << std::endl;
+		std::cout << obj.get<JSONObject>("intval").as<int>() << std::endl;
 
 		// get array
-		std::vector<double> arr = obj.get("elems").asArray<double>();
+		std::vector<double> arr1 = obj.get("elems").asArray<double>();
+		std::list<std::string> arr2 = obj.get("strs").asArray<std::string, std::list>();
 
 		...
 		// construct object
@@ -43,7 +24,7 @@
 		std::vector<int> v = {1, 2, 3, 4};
 		obj.set("intval", 1234);
 		obj.set("arrval", v);
-		obj.set("doubleval", JSONObject(100.1));
+		obj.set("doubleval", 100.1);
 		obj.set("nullval", cjsonpp::nullObject());
 
 		...
@@ -101,7 +82,7 @@ class JSONObject
 		~Holder() { if (own_) cJSON_Delete(o); }
 
 		// no copy constructor
-		explicit Holder(const Holder&other) = delete;
+		explicit Holder(const Holder&) = delete;
 
 		// no assignment operator
 		Holder& operator=(const Holder&) = delete;
@@ -166,8 +147,10 @@ public:
 	}
 
 	// create array object
-	template <typename T>
-	explicit JSONObject(const std::vector<T>& elems)
+	template <typename T,
+			  template<typename T, typename A> class ContT=std::vector,
+			  template<typename T> class AllocT=std::allocator>
+	explicit JSONObject(const ContT<T, AllocT<T>>& elems)
 		: obj_(new Holder(cJSON_CreateArray()))
 	{
 		std::for_each(elems.cbegin(), elems.cend(),
@@ -216,58 +199,59 @@ public:
 		return vmap[(*obj_)->type & 0xff];
 	}
 
-	// get value (specialized below)
+	// get value from this object
 	template <typename T>
-	T as() const;
-
-	// get value of the element
-	template <typename T, typename P>
-	T as(const P& param) const
+	T as() const
 	{
-		return get(param).as<T>();
+		return as<T>(obj_->o);
 	}
 
 	// get array
-	template <typename T>
-	std::vector<T> asArray() const
+	template <typename T,
+			  template<typename T, typename A> class ContT=std::vector,
+			  template<typename T> class AllocT=std::allocator>
+	ContT<T, AllocT<T>> asArray() const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
 			throw JSONError("Not an array type");
 
-		std::vector<T> retval(cJSON_GetArraySize(obj_->o));
-		for (size_t i = 0; i < retval.size(); i++)
-			retval[i] = JSONObject(cJSON_GetArrayItem(obj_->o, i), false).as<T>();
+		ContT<T, AllocT<T>> retval;
+		for (int i = 0; i < cJSON_GetArraySize(obj_->o); i++)
+			retval.push_back(as<T>(cJSON_GetArrayItem(obj_->o, i)));
 
 		return retval;
 	}
 
 	// get object by name
-	inline JSONObject get(const char* name) const
+	template <typename T=JSONObject>
+	inline T get(const char* name) const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Object)
 			throw JSONError("Not an object");
 
 		cJSON* item = cJSON_GetObjectItem(obj_->o, name);
 		if (item != nullptr)
-			return JSONObject(item);
+			return as<T>(item);
 		else
 			throw JSONError("No such item");
 	}
 
+	template <typename T=JSONObject>
 	inline JSONObject get(const std::string& value) const
 	{
-		return get(value.c_str());
+		return get<T>(value.c_str());
 	}
 
 	// get value from array
-	inline JSONObject get(int index) const
+	template <typename T=JSONObject>
+	inline T get(int index) const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
 			throw JSONError("Not an array type");
 
 		cJSON* item = cJSON_GetArrayItem(obj_->o, index);
 		if (item != nullptr)
-			return JSONObject(item);
+			return as<T>(item);
 		else
 			throw JSONError("No such item");
 	}
@@ -325,6 +309,10 @@ public:
 	}
 
 private:
+	// get value (specialized below)
+	template <typename T>
+	T as(cJSON* obj) const;
+
 	std::shared_ptr<Holder> obj_;
 	std::vector<JSONObject> refs_;
 
@@ -357,8 +345,62 @@ inline JSONObject arrayObject()
 	return JSONObject(cJSON_CreateArray(), true);
 }
 
+// Specialized getters
+template <>
+inline int JSONObject::as(cJSON* obj) const
+{
+	if ((obj->type & 0xff) != cJSON_Number)
+		throw JSONError("Bad value type");
+	return obj->valueint;
+}
+
+template <>
+inline long JSONObject::as(cJSON* obj) const
+{
+	if ((obj->type & 0xff) != cJSON_Number)
+		throw JSONError("Not a number type");
+	return (long)obj->valuedouble;
+}
+
+template <>
+inline std::string JSONObject::as(cJSON* obj) const
+{
+	if ((obj->type & 0xff) != cJSON_String)
+		throw JSONError("Not a string type");
+	return obj->valuestring;
+}
+
+template <>
+inline double JSONObject::as(cJSON* obj) const
+{
+	if ((obj->type & 0xff) != cJSON_Number)
+		throw JSONError("Not a number type");
+	return obj->valuedouble;
+}
+
+template <>
+inline bool JSONObject::as(cJSON* obj) const
+{
+	if ((obj->type & 0xff) == cJSON_True)
+		return true;
+	else if ((obj->type & 0xff) == cJSON_False)
+		return false;
+	else
+		throw JSONError("Not a boolean type");
+}
+
+template <>
+inline JSONObject JSONObject::as(cJSON* obj) const
+{
+	return JSONObject(obj);
+}
+
 // A traditional C++ streamer
-std::ostream& operator<<(std::ostream& os, const cjsonpp::JSONObject& obj);
+inline std::ostream& operator<<(std::ostream& os, const cjsonpp::JSONObject& obj)
+{
+	os << obj.print();
+	return os;
+}
 
 } // namespace cjsonpp
 
