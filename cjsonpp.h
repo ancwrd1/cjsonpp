@@ -155,7 +155,7 @@ class JSONObject
 	};
 	typedef _SHARED_PTR_IMPL<Holder> HolderPtr;
 	typedef std::set<HolderPtr> HolderSet;
-	typedef _SHARED_PTR_IMPL<std::set<HolderPtr> > HolderSetPtr;
+	typedef _SHARED_PTR_IMPL<HolderSet> HolderSetPtr;
 
 	// get value (specialized below)
 	template <typename T>
@@ -163,8 +163,13 @@ class JSONObject
 
 	HolderPtr obj_;
 
-	// track added holders so that they are not destroyed prematurely before this object dies
-	// holders are stored in the shared set to make sure JSONObject copies will have it shared
+	// Track added holders so that they are not destroyed prematurely before this object dies.
+	// The idea behind it: when a value is added to the object or array it is stored as a reference
+	//   in the cJSON structure and also added to the holder set.
+	// Holders are stored in the shared set to make sure JSONObject copies will have it as well.
+	// This is only relevant for object and array types.
+	// Concurrency is not handled for performance reasons so it's better to avoid sharing JSONObjects
+	//   across threads.
 	HolderSetPtr refs_;
 
 public:
@@ -189,42 +194,36 @@ public:
 
 	// create boolean object
 	explicit JSONObject(bool value)
-		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse(), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse(), true))
 	{
 	}
 
 	// create double object
 	explicit JSONObject(double value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int64_t value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create string object
 	explicit JSONObject(const char* value)
-		: obj_(new Holder(cJSON_CreateString(value), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(cJSON_CreateString(value), true))
 	{
 	}
 
 	explicit JSONObject(const std::string& value)
-		: obj_(new Holder(cJSON_CreateString(value.c_str()), true)),
-		  refs_(new HolderSet)
+		: obj_(new Holder(cJSON_CreateString(value.c_str()), true))
 	{
 	}
 
