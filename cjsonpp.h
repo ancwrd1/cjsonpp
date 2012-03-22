@@ -108,7 +108,7 @@ public:
 	}
 
 	// wrap existing cJSON object
-	explicit JSONObject(cJSON* obj, bool own=false)
+	JSONObject(cJSON* obj, bool own)
 		: obj_(new Holder(obj, own))
 	{
 	}
@@ -287,7 +287,7 @@ public:
 private:
 	// get value (specialized below)
 	template <typename T>
-	T as(cJSON* obj) const;
+	static T as(cJSON* obj);
 
 	HolderPtr obj_;
 
@@ -325,7 +325,7 @@ inline JSONObject arrayObject()
 
 // Specialized getters
 template <>
-inline int JSONObject::as(cJSON* obj) const
+inline int JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Bad value type");
@@ -333,7 +333,7 @@ inline int JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline long long JSONObject::as(cJSON* obj) const
+inline long long JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -341,7 +341,7 @@ inline long long JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline std::string JSONObject::as(cJSON* obj) const
+inline std::string JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_String)
 		throw JSONError("Not a string type");
@@ -349,7 +349,7 @@ inline std::string JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline double JSONObject::as(cJSON* obj) const
+inline double JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -357,7 +357,7 @@ inline double JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline bool JSONObject::as(cJSON* obj) const
+inline bool JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) == cJSON_True)
 		return true;
@@ -368,9 +368,9 @@ inline bool JSONObject::as(cJSON* obj) const
 }
 
 template <>
-inline JSONObject JSONObject::as(cJSON* obj) const
+inline JSONObject JSONObject::as(cJSON* obj)
 {
-	return JSONObject(obj);
+	return JSONObject(obj, false);
 }
 
 // A traditional C++ streamer
