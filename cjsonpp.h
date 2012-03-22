@@ -1,18 +1,54 @@
-// This code is a public domain software.
+/*
+  Copyright (c) 2012 Dmitry Pankratov
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+*/
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
   Version 0.2.
 
-  To use C++11 features compile with -std=c++0x -DWITH_CPP11
-  Requires std::shared_ptr or std::tr1::shared_ptr
+  Can be compiled in two modes: the default C++98 mode and the new C++11 mode
+  To use C++11 features compile with -DWITH_CPP11 (and -std=c++0x for gcc compiler)
+  Enabled C++11 features are:
+	* initializer list for array object construction
+	* default template parameters for constructor, get<> and asArray<> functions
+	* std::shared_ptr
+
+  if C++11 support is not compiled the std::tr1::shared_ptr implementation is used.
+  Feel free to replace it with boost::shared_ptr if needed (see below _SHARED_PTR_IMPL macro)
+
+  TODO: removing of elements is not supported yet
 
   Usage examples:
 		// parse and get value
 		JSONObject obj = cjsonpp::parse(jsonstr);
-		// the following two lines are equal
-		std::cout << obj.get<int>("intval") << std::endl;
-		std::cout << obj.get<JSONObject>("intval").as<int>() << std::endl;
+
+		// JSONObject can be copied over
+
+		// get value of the named element
+		try {
+			std::cout << obj.get<int>("intval") << std::endl;
+			std::cout << obj.get<JSONObject>("intval").as<int>() << std::endl;
+		} catch (const JSONError& e) {
+			std::cerr << e.what() << '\n';
+		}
 
 		// get array
 		std::vector<double> arr1 = obj.get("elems").asArray<double>();
@@ -21,7 +57,7 @@
 		...
 		// construct object
 		JSONObject obj;
-		std::vector<int> v = {1, 2, 3, 4};
+		std::vector<int> v = {1, 2, 3, 4}; // c++11 only
 		obj.set("intval", 1234);
 		obj.set("arrval", v);
 		obj.set("doubleval", 100.1);
@@ -35,6 +71,21 @@
 		JSONObject obj;
 		obj.set("arrval", arr);
 		std::cout << obj << std::endl;
+
+  The following data types are supported with get<>("name") and as<>() functions:
+	* int
+	* int64_t
+	* double
+	* std::string
+	* bool
+	* JSONObject
+
+  To add support for more data types add a template specialization for private static function as<>(cJSON*).
+  Example:
+	QString JSONObject::as<QString>(cJSON* obj)
+	{
+		return QString::fromStdString(as<std::string>(obj));
+	}
 */
 
 #ifndef CJSONPP_H
@@ -103,11 +154,24 @@ class JSONObject
 		Holder& operator=(const Holder&);
 	};
 	typedef _SHARED_PTR_IMPL<Holder> HolderPtr;
+	typedef std::set<HolderPtr> HolderSet;
+	typedef _SHARED_PTR_IMPL<std::set<HolderPtr> > HolderSetPtr;
+
+	// get value (specialized below)
+	template <typename T>
+	static T as(cJSON* obj);
+
+	HolderPtr obj_;
+
+	// track added holders so that they are not destroyed prematurely before this object dies
+	// holders are stored in the shared set to make sure JSONObject copies will have it shared
+	HolderSetPtr refs_;
 
 public:
 	// create empty object
 	JSONObject()
-		: obj_(new Holder(cJSON_CreateObject(), true))
+		: obj_(new Holder(cJSON_CreateObject(), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
@@ -118,86 +182,102 @@ public:
 
 	// wrap existing cJSON object
 	JSONObject(cJSON* obj, bool own)
-		: obj_(new Holder(obj, own))
+		: obj_(new Holder(obj, own)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create boolean object
 	explicit JSONObject(bool value)
-		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse(), true))
+		: obj_(new Holder(value ? cJSON_CreateTrue() : cJSON_CreateFalse(), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create double object
 	explicit JSONObject(double value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(value), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(value), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int64_t value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(value), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create string object
 	explicit JSONObject(const char* value)
-		: obj_(new Holder(cJSON_CreateString(value), true))
+		: obj_(new Holder(cJSON_CreateString(value), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	explicit JSONObject(const std::string& value)
-		: obj_(new Holder(cJSON_CreateString(value.c_str()), true))
+		: obj_(new Holder(cJSON_CreateString(value.c_str()), true)),
+		  refs_(new HolderSet)
 	{
 	}
 
 	// create array object
 #ifdef WITH_CPP11
 	template <typename T,
-			  template<typename T, typename A> class ContT=std::vector,
-			  template<typename T> class AllocT=std::allocator>
-	explicit JSONObject(const ContT<T, AllocT<T>>& elems)
-		: obj_(new Holder(cJSON_CreateArray(), true))
-	{
-		for (auto it = elems.cbegin(); it != elems.cend(); it++)
-			add(*it);
-	}
-	template <typename T>
-	JSONObject(const std::initializer_list<T>& elems)
-		: obj_(new Holder(cJSON_CreateArray(), true))
-	{
-		for (auto it = elems.begin(); it != elems.end(); it++)
-			add(*it);
-	}
+			  template<typename T, typename A> class ContT=std::vector>
 #else
 	template <typename T,
 			  template<typename T, typename A> class ContT>
+#endif
 	explicit JSONObject(const ContT<T, std::allocator<T> >& elems)
-		: obj_(new Holder(cJSON_CreateArray(), true))
+		: obj_(new Holder(cJSON_CreateArray(), true)),
+		  refs_(new HolderSet)
 	{
 		for (typename ContT<T, std::allocator<T> >::const_iterator it = elems.begin();
 			 it != elems.end(); it++)
 			add(*it);
 	}
+#ifdef WITH_CPP11
+	template <typename T>
+	JSONObject(const std::initializer_list<T>& elems)
+		: obj_(new Holder(cJSON_CreateArray(), true)),
+		  refs_(new HolderSet)
+	{
+		for (auto it = elems.begin(); it != elems.end(); it++)
+			add(*it);
+	}
 #endif
+	// for Qt-style containers
+	template <typename T,
+			  template<typename T> class ContT>
+	explicit JSONObject(const ContT<T>& elems)
+		: obj_(new Holder(cJSON_CreateArray(), true)),
+		  refs_(new HolderSet)
+	{
+		for (typename ContT<T>::const_iterator it = elems.begin(); it != elems.end(); it++)
+			add(*it);
+	}
 
 	// copy constructor
 	JSONObject(const JSONObject& other)
-		: obj_(other.obj_)
+		: obj_(other.obj_), refs_(other.refs_)
 	{
 	}
 
 	// copy operator
 	inline JSONObject& operator=(const JSONObject& other)
 	{
-		if (&other != this)
+		if (&other != this) {
 			obj_ = other.obj_;
+			refs_ = other.refs_;
+		}
 		return *this;
 	}
 
@@ -221,22 +301,10 @@ public:
 	// get array
 #ifdef WITH_CPP11
 	template <typename T=JSONObject,
-			  template<typename T, typename A> class ContT=std::vector,
-			  template<typename T> class AllocT=std::allocator>
-	inline ContT<T, AllocT<T>> asArray() const
-	{
-		if (((*obj_)->type & 0xff) != cJSON_Array)
-			throw JSONError("Not an array type");
-
-		ContT<T, AllocT<T>> retval;
-		for (int i = 0; i < cJSON_GetArraySize(obj_->o); i++)
-			retval.push_back(as<T>(cJSON_GetArrayItem(obj_->o, i)));
-
-		return retval;
-	}
+			  template<typename T, typename A> class ContT=std::vector>
 #else
-	template <typename T,
-			  template<typename T, typename A> class ContT>
+	template <typename T, template<typename T, typename A> class ContT>
+#endif
 	inline ContT<T, std::allocator<T> > asArray() const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
@@ -248,7 +316,20 @@ public:
 
 		return retval;
 	}
-#endif
+
+	// for Qt-style containers
+	template <typename T, template<typename T> class ContT>
+	inline ContT<T> asArray() const
+	{
+		if (((*obj_)->type & 0xff) != cJSON_Array)
+			throw JSONError("Not an array type");
+
+		ContT<T> retval;
+		for (int i = 0; i < cJSON_GetArraySize(obj_->o); i++)
+			retval.push_back(as<T>(cJSON_GetArrayItem(obj_->o, i)));
+
+		return retval;
+	}
 
 	// get object by name
 #ifdef WITH_CPP11
@@ -304,7 +385,7 @@ public:
 			throw JSONError("Not an array type");
 		JSONObject o(value);
 		cJSON_AddItemReferenceToArray(obj_->o, o.obj_->o);
-		refs_.insert(o.obj_);
+		refs_->insert(o.obj_);
 	}
 
 	// set value in object
@@ -314,7 +395,7 @@ public:
 			throw JSONError("Not an object type");
 		JSONObject o(value);
 		cJSON_AddItemReferenceToObject(obj_->o, name, o.obj_->o);
-		refs_.insert(o.obj_);
+		refs_->insert(o.obj_);
 	}
 
 	// set value in object (std::string)
@@ -331,20 +412,6 @@ public:
 		free(json);
 		return retval;
 	}
-
-private:
-	// get value (specialized below)
-	template <typename T>
-	static T as(cJSON* obj);
-
-	HolderPtr obj_;
-
-	// track added holders so that they are not destroyed prematurely before this object dies
-	std::set<HolderPtr> refs_;
-
-	friend JSONObject parse(const char* str);
-	friend JSONObject nullObject();
-	friend JSONObject arrayObject();
 };
 
 // parse from C string
