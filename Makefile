@@ -1,5 +1,5 @@
 OBJS=cJSON.o test.o
-CXXFLAGS=-std=c++0x -g3 -Wall -Wextra -pedantic-errors
+CXXFLAGS=-std=c++0x -DWITH_CPP11 -g3 -Wall -Wextra -pedantic-errors
 CFLAGS=-std=c99 -g3 -Wall -Wextra -pedantic-errors
 LDFLAGS=-g3
 

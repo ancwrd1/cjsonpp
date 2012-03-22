@@ -2,10 +2,10 @@
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
-  Version 0.1.
+  Version 0.2.
 
-  Requires C++11 compiler with std::shared_ptr.
-  Tested with gcc 4.6
+  To use C++11 features compile with -std=c++0x -DWITH_CPP11
+  Requires std::shared_ptr or std::tr1::shared_ptr
 
   Usage examples:
 		// parse and get value
@@ -40,13 +40,22 @@
 #ifndef CJSONPP_H
 #define CJSONPP_H
 
+#include <stdint.h>
+#include <stdlib.h>
 #include <stdexcept>
 #include <string>
-#include <memory>
 #include <set>
 #include <ostream>
 #include <vector>
+
+#ifdef WITH_CPP11
+#include <memory>
 #include <initializer_list>
+#define _SHARED_PTR_IMPL std::shared_ptr
+#else
+#include <tr1/memory>
+#define _SHARED_PTR_IMPL std::tr1::shared_ptr
+#endif
 
 #include "cJSON.h"
 
@@ -82,18 +91,19 @@ class JSONObject
 		Holder(cJSON* obj, bool own) : o(obj), own_(own) {}
 		~Holder() { if (own_) cJSON_Delete(o); }
 
-		// no copy constructor
-		explicit Holder(const Holder&) = delete;
-
-		// no assignment operator
-		Holder& operator=(const Holder&) = delete;
-
 		inline cJSON* operator->()
 		{
 			return o;
 		}
+	private:
+		// no copy constructor
+		explicit Holder(const Holder&);
+
+		// no assignment operator
+		Holder& operator=(const Holder&);
+
 	};
-	typedef std::shared_ptr<Holder> HolderPtr;
+	typedef _SHARED_PTR_IMPL<Holder> HolderPtr;
 
 public:
 	// create empty object
@@ -132,7 +142,7 @@ public:
 	}
 
 	// create integer object
-	explicit JSONObject(long long value)
+	explicit JSONObject(int64_t value)
 		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
@@ -149,6 +159,7 @@ public:
 	}
 
 	// create array object
+#ifdef WITH_CPP11
 	template <typename T,
 			  template<typename T, typename A> class ContT=std::vector,
 			  template<typename T> class AllocT=std::allocator>
@@ -158,7 +169,6 @@ public:
 		for (auto it = elems.cbegin(); it != elems.cend(); it++)
 			add(*it);
 	}
-
 	template <typename T>
 	JSONObject(const std::initializer_list<T>& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true))
@@ -166,6 +176,17 @@ public:
 		for (auto it = elems.begin(); it != elems.end(); it++)
 			add(*it);
 	}
+#else
+	template <typename T,
+			  template<typename T, typename A> class ContT>
+	explicit JSONObject(const ContT<T, std::allocator<T> >& elems)
+		: obj_(new Holder(cJSON_CreateArray(), true))
+	{
+		for (typename ContT<T, std::allocator<T> >::const_iterator it = elems.begin();
+			 it != elems.end(); it++)
+			add(*it);
+	}
+#endif
 
 	// copy constructor
 	JSONObject(const JSONObject& other)
@@ -199,6 +220,7 @@ public:
 	}
 
 	// get array
+#ifdef WITH_CPP11
 	template <typename T=JSONObject,
 			  template<typename T, typename A> class ContT=std::vector,
 			  template<typename T> class AllocT=std::allocator>
@@ -213,36 +235,63 @@ public:
 
 		return retval;
 	}
+#else
+	template <typename T,
+			  template<typename T, typename A> class ContT>
+	inline ContT<T, std::allocator<T> > asArray() const
+	{
+		if (((*obj_)->type & 0xff) != cJSON_Array)
+			throw JSONError("Not an array type");
+
+		ContT<T, std::allocator<T> > retval;
+		for (int i = 0; i < cJSON_GetArraySize(obj_->o); i++)
+			retval.push_back(as<T>(cJSON_GetArrayItem(obj_->o, i)));
+
+		return retval;
+	}
+#endif
 
 	// get object by name
+#ifdef WITH_CPP11
 	template <typename T=JSONObject>
+#else
+	template <typename T>
+#endif
 	inline T get(const char* name) const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Object)
 			throw JSONError("Not an object");
 
 		cJSON* item = cJSON_GetObjectItem(obj_->o, name);
-		if (item != nullptr)
+		if (item != NULL)
 			return as<T>(item);
 		else
 			throw JSONError("No such item");
 	}
 
+#ifdef WITH_CPP11
 	template <typename T=JSONObject>
+#else
+	template <typename T>
+#endif
 	inline JSONObject get(const std::string& value) const
 	{
 		return get<T>(value.c_str());
 	}
 
 	// get value from array
+#ifdef WITH_CPP11
 	template <typename T=JSONObject>
+#else
+	template <typename T>
+#endif
 	inline T get(int index) const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
 			throw JSONError("Not an array type");
 
 		cJSON* item = cJSON_GetArrayItem(obj_->o, index);
-		if (item != nullptr)
+		if (item != NULL)
 			return as<T>(item);
 		else
 			throw JSONError("No such item");
@@ -333,11 +382,11 @@ inline int JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline long long JSONObject::as(cJSON* obj)
+inline int64_t JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
-	return (long long)obj->valuedouble;
+	return (int64_t)obj->valuedouble;
 }
 
 template <>
