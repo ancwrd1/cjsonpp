@@ -101,7 +101,6 @@ class JSONObject
 
 		// no assignment operator
 		Holder& operator=(const Holder&);
-
 	};
 	typedef _SHARED_PTR_IMPL<Holder> HolderPtr;
 
