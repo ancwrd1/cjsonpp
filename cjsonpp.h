@@ -40,6 +40,7 @@
 #ifndef CJSONPP_H
 #define CJSONPP_H
 
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <memory>
@@ -280,7 +281,7 @@ public:
 	{
 		char* json = formatted ? cJSON_Print(obj_->o) : cJSON_PrintUnformatted(obj_->o);
 		std::string retval(json);
-		free(json);
+		std::free(json);
 		return retval;
 	}
 
