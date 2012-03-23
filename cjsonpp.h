@@ -22,19 +22,15 @@
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
-  Version 0.2.
+  Version 0.3.
 
-  Can be compiled in two modes: the default C++98 mode and the new C++11 mode
-  To use C++11 features compile with -DWITH_CPP11 (and -std=c++0x for gcc compiler)
-  Enabled C++11 features are:
+  When compiled with recent gcc compiler with c++11 support the following features are enabled:
 	* initializer list for array object construction
 	* default template parameters for constructor, get<> and asArray<> functions
 	* std::shared_ptr
 
   if C++11 support is not compiled the std::tr1::shared_ptr implementation is used.
   Feel free to replace it with boost::shared_ptr if needed (see below _SHARED_PTR_IMPL macro)
-
-  TODO: removing of elements is not supported yet
 
   Usage examples:
 		// parse and get value
@@ -90,6 +86,14 @@
 
 #ifndef CJSONPP_H
 #define CJSONPP_H
+
+#if defined(WITH_CPP11)
+#undef WITH_CPP11
+#endif
+
+#if !defined (WITH_CPP11) && (defined(__GXX_EXPERIMENTAL_CXX0X__) || (__cplusplus == 201103L))
+#define WITH_CPP11
+#endif
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -173,6 +177,16 @@ class JSONObject
 	HolderSetPtr refs_;
 
 public:
+	inline cJSON* obj() const { return obj_->o; }
+
+	std::string print(bool formatted=true) const
+	{
+		char* json = formatted ? cJSON_Print(obj_->o) : cJSON_PrintUnformatted(obj_->o);
+		std::string retval(json);
+		free(json);
+		return retval;
+	}
+
 	// create empty object
 	JSONObject()
 		: obj_(new Holder(cJSON_CreateObject(), true)),
@@ -402,14 +416,38 @@ public:
 		return set(name.c_str(), value);
 	}
 
-	inline cJSON* obj() const { return obj_->o; }
+	// remove item from object
+	inline void remove(const char* name) {
+		if (((*obj_)->type & 0xff) != cJSON_Object)
+			throw JSONError("Not an object type");
+		cJSON* detached = cJSON_DetachItemFromObject(obj_->o, name);
+		if (!detached)
+			throw JSONError("No such item");
+		for (HolderSet::iterator it = refs_->begin(); it != refs_->end(); it++)
+			if ((*it)->o == detached) {
+				refs_->erase(it);
+				break;
+			}
+		cJSON_Delete(detached);
+	}
 
-	std::string print(bool formatted=true) const
-	{
-		char* json = formatted ? cJSON_Print(obj_->o) : cJSON_PrintUnformatted(obj_->o);
-		std::string retval(json);
-		free(json);
-		return retval;
+	inline void remove(const std::string& name) {
+		return remove(name.c_str());
+	}
+
+	// remove item from array
+	inline void remove(int index) {
+		if (((*obj_)->type & 0xff) != cJSON_Array)
+			throw JSONError("Not an array type");
+		cJSON* detached = cJSON_DetachItemFromArray(obj_->o, index);
+		if (!detached)
+			throw JSONError("No such item");
+		for (HolderSet::iterator it = refs_->begin(); it != refs_->end(); it++)
+			if ((*it)->o == detached) {
+				refs_->erase(it);
+				break;
+			}
+		cJSON_Delete(detached);
 	}
 };
 
