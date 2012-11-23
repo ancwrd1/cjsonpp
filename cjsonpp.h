@@ -97,6 +97,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <stdexcept>
 #include <string>
 #include <set>
@@ -157,9 +158,11 @@ class JSONObject
 		// no assignment operator
 		Holder& operator=(const Holder&);
 	};
+
 	typedef _SHARED_PTR_IMPL<Holder> HolderPtr;
-	typedef std::set<HolderPtr> HolderSet;
-	typedef _SHARED_PTR_IMPL<HolderSet> HolderSetPtr;
+
+	typedef std::set<JSONObject> ObjectSet;
+	typedef _SHARED_PTR_IMPL<ObjectSet> ObjectSetPtr;
 
 	// get value (specialized below)
 	template <typename T>
@@ -174,7 +177,7 @@ class JSONObject
 	// This is only relevant for object and array types.
 	// Concurrency is not handled for performance reasons so it's better to avoid sharing JSONObjects
 	//   across threads.
-	HolderSetPtr refs_;
+	ObjectSetPtr refs_;
 
 public:
 	inline cJSON* obj() const { return obj_->o; }
@@ -187,10 +190,16 @@ public:
 		return retval;
 	}
 
+	// necessary for holding references in the set
+	bool operator < (const JSONObject& other) const
+	{
+		return obj_->o < other.obj_->o;
+	}
+
 	// create empty object
 	JSONObject()
 		: obj_(new Holder(cJSON_CreateObject(), true)),
-		  refs_(new HolderSet)
+		  refs_(new ObjectSet)
 	{
 	}
 
@@ -202,7 +211,7 @@ public:
 	// wrap existing cJSON object
 	JSONObject(cJSON* obj, bool own)
 		: obj_(new Holder(obj, own)),
-		  refs_(new HolderSet)
+		  refs_(new ObjectSet)
 	{
 	}
 
@@ -251,7 +260,7 @@ public:
 #endif
 	explicit JSONObject(const ContT<T, std::allocator<T> >& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true)),
-		  refs_(new HolderSet)
+		  refs_(new ObjectSet)
 	{
 		for (typename ContT<T, std::allocator<T> >::const_iterator it = elems.begin();
 			 it != elems.end(); it++)
@@ -261,7 +270,7 @@ public:
 	template <typename T>
 	JSONObject(const std::initializer_list<T>& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true)),
-		  refs_(new HolderSet)
+		  refs_(new ObjectSet)
 	{
 		for (auto it = elems.begin(); it != elems.end(); it++)
 			add(*it);
@@ -272,7 +281,7 @@ public:
 			  template<typename T> class ContT>
 	explicit JSONObject(const ContT<T>& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true)),
-		  refs_(new HolderSet)
+		  refs_(new ObjectSet)
 	{
 		for (typename ContT<T>::const_iterator it = elems.begin(); it != elems.end(); it++)
 			add(*it);
@@ -398,7 +407,7 @@ public:
 			throw JSONError("Not an array type");
 		JSONObject o(value);
 		cJSON_AddItemReferenceToArray(obj_->o, o.obj_->o);
-		refs_->insert(o.obj_);
+		refs_->insert(o);
 	}
 
 	// set value in object
@@ -408,7 +417,13 @@ public:
 			throw JSONError("Not an object type");
 		JSONObject o(value);
 		cJSON_AddItemReferenceToObject(obj_->o, name, o.obj_->o);
-		refs_->insert(o.obj_);
+		refs_->insert(o);
+	}
+
+	// set value in object
+	template <typename T>
+	inline void set(const std::string& name, const T& value) {
+		set(name.c_str(), value);
 	}
 
 	// set value in object (std::string)
@@ -423,8 +438,8 @@ public:
 		cJSON* detached = cJSON_DetachItemFromObject(obj_->o, name);
 		if (!detached)
 			throw JSONError("No such item");
-		for (HolderSet::iterator it = refs_->begin(); it != refs_->end(); it++)
-			if ((*it)->o == detached) {
+		for (ObjectSet::iterator it = refs_->begin(); it != refs_->end(); it++)
+			if (it->obj_->o == detached) {
 				refs_->erase(it);
 				break;
 			}
@@ -442,8 +457,8 @@ public:
 		cJSON* detached = cJSON_DetachItemFromArray(obj_->o, index);
 		if (!detached)
 			throw JSONError("No such item");
-		for (HolderSet::iterator it = refs_->begin(); it != refs_->end(); it++)
-			if ((*it)->o == detached) {
+		for (ObjectSet::iterator it = refs_->begin(); it != refs_->end(); it++)
+			if (it->obj_->o == detached) {
 				refs_->erase(it);
 				break;
 			}
