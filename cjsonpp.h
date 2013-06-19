@@ -229,13 +229,13 @@ public:
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int64_t value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
 	{
 	}
 
