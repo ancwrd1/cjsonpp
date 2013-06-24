@@ -229,13 +229,13 @@ public:
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int64_t value)
-		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
+		: obj_(new Holder(cJSON_CreateNumber(value), true))
 	{
 	}
 
@@ -469,7 +469,11 @@ public:
 // parse from C string
 inline JSONObject parse(const char* str)
 {
-	return JSONObject(cJSON_Parse(str), true);
+	cJSON* cjson = cJSON_Parse(str);
+	if (cjson)
+		return JSONObject(cjson, true);
+	else
+		throw JSONError("Parse error");
 }
 
 // parse from std::string

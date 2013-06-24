@@ -55,7 +55,15 @@ int main()
 
 	} catch (const JSONError& e) {
 		std::cout << e.what() << '\n';
+      return -1;
 	}
 
+	const char* garbageJSON = "This is not valid JSON.";
+	try {
+      JSONObject obj = parse(garbageJSON);
+      return -1;
+   } catch (const JSONError&) {
+		// no-op
+   }
 	return 0;
 }
