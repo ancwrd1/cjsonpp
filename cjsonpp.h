@@ -87,11 +87,7 @@
 #ifndef CJSONPP_H
 #define CJSONPP_H
 
-#if defined(WITH_CPP11)
-#undef WITH_CPP11
-#endif
-
-#if !defined (WITH_CPP11) && (defined(__GXX_EXPERIMENTAL_CXX0X__) || (__cplusplus == 201103L))
+#if defined(__GXX_EXPERIMENTAL_CXX0X__) || (__cplusplus == 201103L)
 #define WITH_CPP11
 #endif
 
@@ -229,13 +225,13 @@ public:
 
 	// create integer object
 	explicit JSONObject(int value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
 	{
 	}
 
 	// create integer object
 	explicit JSONObject(int64_t value)
-		: obj_(new Holder(cJSON_CreateNumber(value), true))
+		: obj_(new Holder(cJSON_CreateNumber(static_cast<double>(value)), true))
 	{
 	}
 
