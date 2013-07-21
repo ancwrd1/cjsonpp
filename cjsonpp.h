@@ -22,7 +22,7 @@
 
 /*
   Type-safe thin C++ wrapper over cJSON library (header-only).
-  Version 0.3.
+  Version 0.4
 
   When compiled with recent gcc compiler with c++11 support the following features are enabled:
 	* initializer list for array object construction
@@ -268,8 +268,8 @@ public:
 		: obj_(new Holder(cJSON_CreateArray(), true)),
 		  refs_(new ObjectSet)
 	{
-		for (auto it = elems.begin(); it != elems.end(); it++)
-			add(*it);
+		for (auto& it: elems)
+			add(it);
 	}
 #endif
 	// for Qt-style containers
@@ -504,7 +504,7 @@ inline int64_t JSONObject::as(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
-	return (int64_t)obj->valuedouble;
+	return static_cast<int64_t>(obj->valuedouble);
 }
 
 template <>
