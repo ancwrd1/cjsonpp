@@ -552,14 +552,13 @@ inline std::ostream& operator<<(std::ostream& os, const cjsonpp::JSONObject& obj
 template<class T, class TOutputIterator>
 void asArray(const JSONObject &data, TOutputIterator output)
 {
-   cJSON *current = cJSON_GetArrayItem(data.obj(), 0);
-   while(current)
-   {
-      *output = JSONObject(current, false);
+	cJSON *current = cJSON_GetArrayItem(data.obj(), 0);
+	while (current) {
+		*output = JSONObject(current, false);
 
-      ++output;
-      current = current->next;
-   }
+		++output;
+		current = current->next;
+	}
 }
 
 } // namespace cjsonpp
