@@ -492,7 +492,7 @@ inline JSONObject arrayObject()
 
 // Specialized getters
 template <>
-inline int JSONObject::as(cJSON* obj)
+inline int JSONObject::as<int>(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Bad value type");
@@ -500,7 +500,7 @@ inline int JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline int64_t JSONObject::as(cJSON* obj)
+inline int64_t JSONObject::as<int64_t>(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -508,7 +508,7 @@ inline int64_t JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline std::string JSONObject::as(cJSON* obj)
+inline std::string JSONObject::as<std::string>(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_String)
 		throw JSONError("Not a string type");
@@ -516,7 +516,7 @@ inline std::string JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline double JSONObject::as(cJSON* obj)
+inline double JSONObject::as<double>(cJSON* obj)
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -524,7 +524,7 @@ inline double JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline bool JSONObject::as(cJSON* obj)
+inline bool JSONObject::as<bool>(cJSON* obj)
 {
 	if ((obj->type & 0xff) == cJSON_True)
 		return true;
@@ -535,7 +535,7 @@ inline bool JSONObject::as(cJSON* obj)
 }
 
 template <>
-inline JSONObject JSONObject::as(cJSON* obj)
+inline JSONObject JSONObject::as<JSONObject>(cJSON* obj)
 {
 	return JSONObject(obj, false);
 }
