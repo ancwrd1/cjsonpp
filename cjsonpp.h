@@ -163,10 +163,10 @@ public:
 	// create array object
 #ifdef WITH_CPP11
 	template <typename T,
-			  template<typename T, typename A> class ContT=std::vector>
+			  template<typename X, typename A> class ContT=std::vector>
 #else
 	template <typename T,
-			  template<typename T, typename A> class ContT>
+			  template<typename X, typename A> class ContT>
 #endif
 	explicit JSONObject(const ContT<T, std::allocator<T> >& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true)),
@@ -188,7 +188,7 @@ public:
 #endif
 	// for Qt-style containers
 	template <typename T,
-			  template<typename T> class ContT>
+			  template<typename X> class ContT>
 	explicit JSONObject(const ContT<T>& elems)
 		: obj_(new Holder(cJSON_CreateArray(), true)),
 		  refs_(new ObjectSet)
@@ -233,9 +233,9 @@ public:
 	// get array
 #ifdef WITH_CPP11
 	template <typename T=JSONObject,
-			  template<typename T, typename A> class ContT=std::vector>
+			  template<typename X, typename A> class ContT=std::vector>
 #else
-	template <typename T, template<typename T, typename A> class ContT>
+	template <typename T, template<typename X, typename A> class ContT>
 #endif
 	inline ContT<T, std::allocator<T> > asArray() const
 	{
@@ -250,7 +250,7 @@ public:
 	}
 
 	// for Qt-style containers
-	template <typename T, template<typename T> class ContT>
+	template <typename T, template<typename X> class ContT>
 	inline ContT<T> asArray() const
 	{
 		if (((*obj_)->type & 0xff) != cJSON_Array)
