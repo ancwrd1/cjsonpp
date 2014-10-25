@@ -76,7 +76,7 @@ class JSONObject
 
 	// get value (specialized below)
 	template <typename T>
-	static T as(cJSON* obj);
+	T as(cJSON* obj) const;
 
 	HolderPtr obj_;
 
@@ -123,6 +123,14 @@ public:
 		: obj_(new Holder(obj, own)),
 		  refs_(new ObjectSet)
 	{
+	}
+
+	// wrap existing cJSON object with parent
+	JSONObject(JSONObject parent, cJSON* obj, bool own)
+		: obj_(new Holder(obj, own)),
+		  refs_(new ObjectSet)
+	{
+		refs_->insert(parent);
 	}
 
 	// create boolean object
@@ -406,7 +414,7 @@ inline JSONObject arrayObject()
 
 // Specialized getters
 template <>
-inline int JSONObject::as<int>(cJSON* obj)
+inline int JSONObject::as<int>(cJSON* obj) const
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Bad value type");
@@ -414,7 +422,7 @@ inline int JSONObject::as<int>(cJSON* obj)
 }
 
 template <>
-inline int64_t JSONObject::as<int64_t>(cJSON* obj)
+inline int64_t JSONObject::as<int64_t>(cJSON* obj) const
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -422,7 +430,7 @@ inline int64_t JSONObject::as<int64_t>(cJSON* obj)
 }
 
 template <>
-inline std::string JSONObject::as<std::string>(cJSON* obj)
+inline std::string JSONObject::as<std::string>(cJSON* obj) const
 {
 	if ((obj->type & 0xff) != cJSON_String)
 		throw JSONError("Not a string type");
@@ -430,7 +438,7 @@ inline std::string JSONObject::as<std::string>(cJSON* obj)
 }
 
 template <>
-inline double JSONObject::as<double>(cJSON* obj)
+inline double JSONObject::as<double>(cJSON* obj) const
 {
 	if ((obj->type & 0xff) != cJSON_Number)
 		throw JSONError("Not a number type");
@@ -438,7 +446,7 @@ inline double JSONObject::as<double>(cJSON* obj)
 }
 
 template <>
-inline bool JSONObject::as<bool>(cJSON* obj)
+inline bool JSONObject::as<bool>(cJSON* obj) const
 {
 	if ((obj->type & 0xff) == cJSON_True)
 		return true;
@@ -449,9 +457,9 @@ inline bool JSONObject::as<bool>(cJSON* obj)
 }
 
 template <>
-inline JSONObject JSONObject::as<JSONObject>(cJSON* obj)
+inline JSONObject JSONObject::as<JSONObject>(cJSON* obj) const
 {
-	return JSONObject(obj, false);
+	return JSONObject(*this, obj, false);
 }
 
 // A traditional C++ streamer

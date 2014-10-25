@@ -2,6 +2,18 @@
 #include <list>
 #include "cjsonpp.h"
 
+cjsonpp::JSONObject create_arr()
+{
+	cjsonpp::JSONObject obj;
+
+	cjsonpp::JSONObject arr = cjsonpp::arrayObject();
+	arr.add("foo");
+	arr.add("bar");
+
+	obj.set("arr", arr);
+	return obj.get<cjsonpp::JSONObject>("arr");
+}
+
 int main()
 {
 	using namespace cjsonpp;
@@ -52,6 +64,11 @@ int main()
 		JSONObject obj2;
 		obj2.set("arrval", arr);
 		std::cout << obj2 << std::endl;
+
+		const cjsonpp::JSONObject arr3 = create_arr();
+		const std::string json = arr3.print();
+		std::cout << json << std::endl;
+
 
 	} catch (const JSONError& e) {
 		std::cout << e.what() << '\n';
