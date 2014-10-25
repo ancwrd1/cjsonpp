@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <iostream>
 #include <list>
 #include "cjsonpp.h"
@@ -33,6 +34,9 @@ int main()
 		o.set("str2", "vvv");
 		o.set("v", v);
 		o.set("vo", vo);
+
+		assert(o.has("num"));
+		assert(o.has(std::string("str2")));
 
 		std::cout << o.get<std::string>("str1") << '\n';
 		std::cout << parse(o.print()) << '\n';

@@ -299,6 +299,16 @@ public:
 		return get<T>(value.c_str());
 	}
 
+	inline bool has(const char* name) const
+	{
+		return cJSON_GetObjectItem(obj_->o, name) != NULL;
+	}
+
+	inline bool has(const std::string& name) const
+	{
+		return has(name.c_str());
+	}
+
 	// get value from array
 #ifdef WITH_CPP11
 	template <typename T=JSONObject>
