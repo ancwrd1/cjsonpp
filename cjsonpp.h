@@ -1,7 +1,7 @@
 #ifndef CJSONPP_H
 #define CJSONPP_H
 
-#if defined(__GXX_EXPERIMENTAL_CXX0X__) || (__cplusplus == 201103L)
+#if defined(__GXX_EXPERIMENTAL_CXX0X__) || (__cplusplus >= 201103L)
 #define WITH_CPP11
 #endif
 
