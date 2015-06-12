@@ -56,6 +56,8 @@ The following data types are supported with get<>("name") and as<>() functions:
 
 To add support for more data types add a template specialization for private static function as<>(cJSON*).
 Example:
+	
+	// Qt support
 	QString JSONObject::as<QString>(cJSON* obj)
 	{
 		return QString::fromStdString(as<std::string>(obj));
