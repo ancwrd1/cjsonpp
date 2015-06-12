@@ -10,6 +10,7 @@ if C++11 support is not compiled the std::tr1::shared_ptr implementation is used
 Feel free to replace it with boost::shared_ptr if needed (see below _SHARED_PTR_IMPL macro)
 
 Usage examples:
+
 	// parse and get value
 	JSONObject obj = cjsonpp::parse(jsonstr);
 
